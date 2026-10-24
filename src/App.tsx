@@ -327,8 +327,8 @@ function App() {
 
       <header className="topbar">
         <a className="wordmark" href="#" aria-label="OddlyGo home">
-          <span className="brand-icon"><Orbit size={21} strokeWidth={2.5} /></span>
-          oddly<span>go</span><i>.</i>
+          <img className="brand-icon-image" src="/favicon.svg" alt="" aria-hidden="true" />
+          <span className="wordmark-oddly">Oddly</span><span className="wordmark-go">Go</span>
         </a>
         <nav className={mobileMenu ? "main-nav open" : "main-nav"}>
           <a href="#explore" onClick={() => setMobileMenu(false)}>Explore</a>
@@ -367,17 +367,27 @@ function App() {
             </div>
             <div className="hero-footnote"><span className="tiny-sparkle">✦</span> {discoveryVibe === "Surprise me" ? "Free to explore. Impossible to predict." : `Your vibe: ${discoveryVibe}. No repeats if we can help it.`}</div>
           </div>
-          <div className="hero-art" aria-label="Abstract OddlyGo artwork">
+          <div className="hero-art" aria-label="OddlyGo playground illustration">
+            <div className="art-glow" />
             <div className="art-grid" />
-            <div className="orbit orbit-one" />
-            <div className="orbit orbit-two" />
-            <div className="art-sun"><span>o</span></div>
-            <div className="art-sticker sticker-top">STAY CURIOUS <Sparkles size={13} /></div>
-            <div className="art-sticker sticker-bottom"><span>✳</span> EXPECT THE UNEXPECTED</div>
+            <div className="art-orbit art-orbit-one" />
+            <div className="art-orbit art-orbit-two" />
+            <div className="art-planet"><span>o</span><i /></div>
+            <div className="art-window window-games">
+              <span className="window-dots"><i /><i /><i /></span>
+              <span className="window-label">MINI GAMES</span>
+              <b>PLAY</b><span className="window-symbol">↗</span>
+            </div>
+            <div className="art-window window-weird">
+              <span className="window-label">WEIRD WEB</span>
+              <b>GO ODDLY</b><span className="window-symbol">✳</span>
+            </div>
+            <div className="art-chip chip-top"><Sparkles size={12} /> STAY CURIOUS</div>
+            <div className="art-chip chip-bottom"><span>✦</span> SOMETHING UNEXPECTED</div>
             <div className="art-star star-one">✳</div>
             <div className="art-star star-two">✦</div>
             <div className="art-cross">+</div>
-            <div className="art-caption">INTERNET<br />ODDITY № 001</div>
+            <div className="art-caption">ODDLYGO / INTERNET PLAYGROUND</div>
           </div>
           <div className="hero-index"><span>01</span><span className="index-line" /><span>DISCOVER YOUR NEXT OBSESSION</span></div>
         </section>

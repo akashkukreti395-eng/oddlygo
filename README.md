@@ -37,3 +37,7 @@ Progress and best streaks are browser-local. They do not sync across devices.
 - The catalog has 53 unique experience IDs.
 - External sites are third-party services; availability, ads, sign-in requirements, and mobile support can change independently of OddlyGo.
 - Test the Web finds and Originals filters, search, sorting, Saved/Recent, external launch buttons, and each internal game before release.
+
+
+## Brand refresh
+This release introduces the OddlyGo orange/amber accent palette, a new planet favicon, refined header wordmark, and refreshed SEO/social metadata. Existing game logic and the Vite/Cloudflare Pages setup are preserved.
