@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import {
   ArrowDownRight,
@@ -33,6 +33,7 @@ import {
   Medal,
 } from "lucide-react";
 import { experiences, type Category, type Experience } from "./data/experiences";
+import { CinematicIntro } from "./components/CinematicIntro";
 
 type DiscoveryVibe = "Surprise me" | "Quick hit" | "Play something" | "Weird web" | "Make stuff";
 const discoveryVibes: { label: DiscoveryVibe; hint: string }[] = [
@@ -61,6 +62,13 @@ function readStorage(key: string): string[] {
 }
 
 function App() {
+  const [showCinematicIntro, setShowCinematicIntro] = useState(() => {
+    try { return !sessionStorage.getItem("oddlygo-intro-seen"); } catch { return false; }
+  });
+  const finishCinematicIntro = useCallback(() => {
+    try { sessionStorage.setItem("oddlygo-intro-seen", "1"); } catch { /* storage may be unavailable */ }
+    setShowCinematicIntro(false);
+  }, []);
   const [activeCategory, setActiveCategory] = useState<Category>("All");
   const [discoveryVibe, setDiscoveryVibe] = useState<DiscoveryVibe>("Surprise me");
   const [query, setQuery] = useState("");
@@ -99,6 +107,96 @@ function App() {
       return null;
     }
   });
+
+  useEffect(() => {
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const selector = ".hero-copy, .hero-art, .section-heading, .experience-card, .category-pill, .daily-banner, .about-section, .creator-note, .footer-made, .daily-prism-card, .arcade-panel, .arcade-passport";
+    const reveal = () => {
+      const nodes = Array.from(document.querySelectorAll<HTMLElement>(selector));
+      if (reduceMotion || !("IntersectionObserver" in window)) {
+        nodes.forEach((el) => el.classList.add("og-revealed"));
+        return;
+      }
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const el = entry.target as HTMLElement;
+            el.classList.add("og-revealed");
+            observer.unobserve(el);
+          }
+        });
+      }, { threshold: 0.04, rootMargin: "0px 0px -24px 0px" });
+      nodes.forEach((el, index) => {
+        el.classList.add("og-reveal");
+        if (el.classList.contains("experience-card")) el.style.setProperty("--og-stagger", `${Math.min(index % 4, 3) * 75}ms`);
+        observer.observe(el);
+      });
+      return observer;
+    };
+    let observer = reveal();
+    // Re-scan after React updates filters, search results, and game catalog state.
+    const mutation = new MutationObserver(() => {
+      observer?.disconnect();
+      observer = reveal();
+    });
+    const root = document.querySelector("#root");
+    if (root) mutation.observe(root, { childList: true, subtree: true });
+    return () => { observer?.disconnect(); mutation.disconnect(); };
+  }, []);
+
+  useEffect(() => {
+    const shell = document.querySelector<HTMLElement>(".site-shell");
+    if (!shell || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let frame = 0;
+    const onPointerMove = (event: PointerEvent) => {
+      if (frame) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        shell.style.setProperty("--pointer-x", `${event.clientX}px`);
+        shell.style.setProperty("--pointer-y", `${event.clientY}px`);
+      });
+    };
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    return () => { window.removeEventListener("pointermove", onPointerMove); if (frame) cancelAnimationFrame(frame); };
+  }, []);
+
+
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let activeCard: HTMLElement | null = null;
+    const onMove = (event: PointerEvent) => {
+      const target = event.target instanceof Element ? event.target.closest<HTMLElement>(".experience-card") : null;
+      if (!target) {
+        if (activeCard) {
+          activeCard.style.setProperty("--tilt-x", "0deg");
+          activeCard.style.setProperty("--tilt-y", "0deg");
+          activeCard = null;
+        }
+        return;
+      }
+      activeCard = target;
+      const rect = target.getBoundingClientRect();
+      const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+      const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+      target.style.setProperty("--spot-x", `${x * 100}%`);
+      target.style.setProperty("--spot-y", `${y * 100}%`);
+      target.style.setProperty("--tilt-x", `${(0.5 - y) * 5}deg`);
+      target.style.setProperty("--tilt-y", `${(x - 0.5) * 6}deg`);
+    };
+    const onLeave = (event: PointerEvent) => {
+      const target = event.target instanceof Element ? event.target.closest<HTMLElement>(".experience-card") : null;
+      if (!target || target.contains(event.relatedTarget as Node | null)) return;
+      target.style.setProperty("--tilt-x", "0deg");
+      target.style.setProperty("--tilt-y", "0deg");
+      if (activeCard === target) activeCard = null;
+    };
+    document.addEventListener("pointermove", onMove, { passive: true });
+    document.addEventListener("pointerout", onLeave, { passive: true });
+    return () => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerout", onLeave);
+    };
+  }, []);
 
   useEffect(() => {
     if (gameState !== "running") return;
@@ -144,6 +242,41 @@ function App() {
     });
   }, [activeCategory, query, saved, showSaved, showRecent, history, onlyOriginals, onlyExternal, quickOnly, sortBy]);
 
+
+  useEffect(() => {
+    const cards = Array.from(document.querySelectorAll<HTMLElement>(".experience-card"));
+    const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!finePointer || reduceMotion) return;
+    const cleanup: Array<() => void> = [];
+    cards.forEach((card) => {
+      const move = (event: PointerEvent) => {
+        const rect = card.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        const rx = ((y / rect.height) - .5) * -5.5;
+        const ry = ((x / rect.width) - .5) * 6.5;
+        card.style.setProperty("--spot-x", `${x}px`);
+        card.style.setProperty("--spot-y", `${y}px`);
+        card.style.setProperty("--tilt-x", `${rx}deg`);
+        card.style.setProperty("--tilt-y", `${ry}deg`);
+      };
+      const leave = () => {
+        card.style.setProperty("--tilt-x", "0deg");
+        card.style.setProperty("--tilt-y", "0deg");
+        card.style.setProperty("--spot-x", "50%");
+        card.style.setProperty("--spot-y", "50%");
+      };
+      card.addEventListener("pointermove", move, { passive: true });
+      card.addEventListener("pointerleave", leave);
+      cleanup.push(() => {
+        card.removeEventListener("pointermove", move);
+        card.removeEventListener("pointerleave", leave);
+      });
+    });
+    return () => cleanup.forEach((fn) => fn());
+  }, [filtered.length, activeCategory, query, showSaved, showRecent, onlyOriginals, onlyExternal]);
+
   function persistSaved(next: string[]) {
     setSaved(next);
     localStorage.setItem("oddlygo-saved", JSON.stringify(next));
@@ -159,6 +292,8 @@ function App() {
     setHistory(next);
     localStorage.setItem("oddlygo-history", JSON.stringify(next));
   }
+
+
 
   const todayKey = new Date().toLocaleDateString("en-CA");
   const originalGames = experiences.filter((item) => item.kind === "internal" && item.category === "Play" && ["one-second", "maze-mind", "prism-shift", "green-light", "memory-matrix", "word-scramble", "orbit-dodge"].includes(item.id));
@@ -319,6 +454,7 @@ function App() {
 
   return (
     <div className={`site-shell${altTheme && themeUnlocked ? " theme-arcade" : ""}`}>
+      {showCinematicIntro && <CinematicIntro onComplete={finishCinematicIntro} />}
       <div className="announcement">
         <span className="announcement-dot" />
         YOUR DAILY DOSE OF DIGITAL CURIOSITY
