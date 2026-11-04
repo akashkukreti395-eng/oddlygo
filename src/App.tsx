@@ -33,7 +33,10 @@ import {
   Medal,
 } from "lucide-react";
 import { experiences, type Category, type Experience } from "./data/experiences";
+import { gameArtworkManifest } from "./data/game-artwork-manifest";
+import { ExperienceArtworkScene } from "./components/ExperienceArtworkScene";
 import { CinematicIntro } from "./components/CinematicIntro";
+import { GlitchCity } from "./games/glitch-city/GlitchCity";
 
 type DiscoveryVibe = "Surprise me" | "Quick hit" | "Play something" | "Weird web" | "Make stuff";
 const discoveryVibes: { label: DiscoveryVibe; hint: string }[] = [
@@ -62,7 +65,35 @@ function readStorage(key: string): string[] {
 }
 
 function App() {
+  const [isGlitchCityRoute, setIsGlitchCityRoute] = useState(() => window.location.pathname.replace(/\/+$/, "") === "/games/glitch-city");
+
+  useEffect(() => {
+    const syncRoute = () => setIsGlitchCityRoute(window.location.pathname.replace(/\/+$/, "") === "/games/glitch-city");
+    window.addEventListener("popstate", syncRoute);
+    return () => window.removeEventListener("popstate", syncRoute);
+  }, []);
+
+  function exitGlitchCity() {
+    const routeState = window.history.state as { oddlygoReturnPath?: string } | null;
+    if (routeState?.oddlygoReturnPath) {
+      window.history.back();
+      return;
+    }
+    window.history.replaceState(null, "", "/");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }
+
+  return (
+    <>
+      <OddlyGoHome isGlitchCityRoute={isGlitchCityRoute} />
+      {isGlitchCityRoute && <GlitchCity onExit={exitGlitchCity} />}
+    </>
+  );
+}
+
+function OddlyGoHome({ isGlitchCityRoute }: { isGlitchCityRoute: boolean }) {
   const [showCinematicIntro, setShowCinematicIntro] = useState(() => {
+    if (window.location.pathname.replace(/\/+$/, "") === "/games/glitch-city") return false;
     try { return !sessionStorage.getItem("oddlygo-intro-seen"); } catch { return false; }
   });
   const finishCinematicIntro = useCallback(() => {
@@ -385,6 +416,13 @@ function App() {
 
   function openExperience(item: Experience) {
     recordVisit(item);
+    if (item.id === "glitch-city") {
+      const returnPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      window.history.pushState({ oddlygoReturnPath: returnPath }, "", "/games/glitch-city");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      setIsDiscovering(false);
+      return;
+    }
     setSurprise(item);
     setIsDiscovering(false);
     if (item.id === "one-second") {
@@ -451,6 +489,8 @@ function App() {
     setGameState("idle");
     setGameResult(null);
   }
+
+  if (isGlitchCityRoute) return null;
 
   return (
     <div className={`site-shell${altTheme && themeUnlocked ? " theme-arcade" : ""}`}>
@@ -519,7 +559,7 @@ function App() {
               <b>GO ODDLY</b><span className="window-symbol">✳</span>
             </div>
             <div className="art-chip chip-top"><Sparkles size={12} /> STAY CURIOUS</div>
-            <div className="art-chip chip-bottom"><span>✦</span> SOMETHING UNEXPECTED</div>
+            <div className="art-chip chip-bottom"><span>✦</span> NO PLAN REQUIRED</div>
             <div className="art-star star-one">✳</div>
             <div className="art-star star-two">✦</div>
             <div className="art-cross">+</div>
@@ -690,7 +730,7 @@ function App() {
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeModal(); }}>
           <section className="experience-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
             <button className="modal-close" onClick={closeModal} aria-label="Close"><X size={20} /></button>
-            <div className={`modal-art art-${surprise.color}`}><span>{surprise.symbol}</span><div className="modal-art-label">ODDLYGO PICK № {String(experiences.findIndex((item) => item.id === surprise.id) + 1).padStart(3, "0")}</div></div>
+            <ExperienceArtwork item={surprise} mode="modal" />
             <div className="modal-content">
               <div className="modal-meta"><span>{surprise.category}</span><span>·</span><span>{surprise.time}</span><span>·</span><span>{surprise.kind === "internal" ? "ODDLYGO ORIGINAL" : "FOUND ON THE WEB"}</span></div>
               <h2 id="modal-title">{surprise.title}</h2>
@@ -750,27 +790,55 @@ function ExperienceCard({ item, saved, onSave, onOpen, index }: {
   return (
     <article className={`experience-card card-${item.color}`} style={{ animationDelay: `${index * 55}ms` }}>
       <button className="card-art-button" onClick={() => onOpen(item)} aria-label={`Open ${item.title}`}>
-        <div className={`card-art art-${item.color}`}>
-          <span className="card-symbol">{item.symbol}</span>
-          <span className="card-art-label">{item.kind === "internal" ? "ODDLYGO ORIGINAL" : "FOUND ON THE WEB"}</span>
-          <span className="card-art-index">№ {String(experiences.findIndex((entry) => entry.id === item.id) + 1).padStart(2, "0")}</span>
-          {item.category === "Experiment" && <div className="mini-orbit" />}
-          {item.category === "Play" && <span className="mini-star">✳</span>}
-        </div>
+        <ExperienceArtwork item={item} mode="card" />
+        <span className="card-play-indicator"><Play size={14} fill="currentColor" /> {item.kind === "internal" ? "PLAY EXPERIENCE" : "OPEN DISCOVERY"}</span>
       </button>
       <div className="card-content">
-        <div className="card-meta"><span>{item.category}</span><span>·</span><span>{item.time}</span></div>
+        <div className="card-meta"><span>{item.category}</span><span>·</span><span>{item.time}</span><span className="card-kind">{item.kind === "internal" ? "ORIGINAL" : "WEB FIND"}</span></div>
         <div className="card-title-row">
           <button className="card-title" onClick={() => onOpen(item)}>{item.title}</button>
-          <button className={`save-button ${saved ? "saved" : ""}`} onClick={() => onSave(item.id)} aria-label={saved ? "Remove saved item" : "Save item"}>{saved ? <Check size={16} /> : <Bookmark size={16} />}</button>
+          <button className={`save-button ${saved ? "saved" : ""}`} onClick={() => onSave(item.id)} aria-label={saved ? `Remove ${item.title} from saved items` : `Save ${item.title}`} aria-pressed={saved} title={saved ? "Remove from saved" : "Save for later"}>{saved ? <Check size={16} /> : <Bookmark size={16} />}</button>
         </div>
         <p>{item.description}</p>
-        <button className="card-open" onClick={() => onOpen(item)}>
-          {item.kind === "internal" ? "Try it out" : "Visit website"}
+        <button className="card-open" onClick={() => onOpen(item)} aria-label={`${item.kind === "internal" ? "Play" : "Open"} ${item.title}`}>
+          <span>{item.kind === "internal" ? "Play now" : "Visit website"}</span>
           {item.kind === "external" ? <ExternalLink size={14} /> : <ArrowRight size={15} />}
         </button>
       </div>
     </article>
+  );
+}
+
+function ExperienceArtwork({ item, mode }: { item: Experience; mode: "card" | "modal" }) {
+  const artwork = gameArtworkManifest[item.id];
+  const index = experiences.findIndex((entry) => entry.id === item.id) + 1;
+  const generated = artwork.status === "ready";
+
+  return (
+    <div
+      className={`card-art art-${item.color} card-art-${mode}${generated ? " has-generated-art" : " art-prompt-preview"}`}
+      data-artwork={item.id}
+      role="img"
+      aria-label={`${item.title} artwork preview`}
+    >
+      {generated && (
+        <img
+          className="card-art-image"
+          src={artwork.path}
+          alt={artwork.alt}
+          loading={mode === "card" ? "lazy" : "eager"}
+          decoding="async"
+          onError={(event) => {
+            console.warn(`Artwork for ${item.title} could not be loaded: ${artwork.path}`);
+            event.currentTarget.hidden = true;
+          }}
+        />
+      )}
+      {!generated && <ExperienceArtworkScene id={item.id} />}
+      <span className="card-art-label">{item.kind === "internal" ? "ODDLYGO ORIGINAL" : "FOUND ON THE WEB"}</span>
+      <span className="card-art-index">№ {String(index).padStart(2, "0")}</span>
+      {mode === "modal" && <span className="modal-art-label">ODDLYGO PICK № {String(index).padStart(3, "0")}</span>}
+    </div>
   );
 }
 

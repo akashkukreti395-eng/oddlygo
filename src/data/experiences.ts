@@ -17,6 +17,17 @@ export type Experience = {
 
 export const experiences: Experience[] = [
   {
+    id: "glitch-city",
+    title: "GLITCH CITY",
+    description: "Wake in a vanished neon city, recover its scattered memories, and bring the signal back to life.",
+    category: "Play",
+    kind: "internal",
+    time: "5 min",
+    tags: ["pixel art", "exploration", "mystery", "original"],
+    color: "blue",
+    symbol: "⌁",
+  },
+  {
     id: "one-second",
     title: "One Second",
     description: "Can you stop the timer at exactly 1.00 seconds?",
